@@ -1,76 +1,80 @@
-package org.lt.calc;
+package org.lt.calc.conc;
 
 import java.util.Scanner;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import org.lt.calc.lexer.Token;
 import org.lt.calc.lexer.TokenType;
 import org.lt.calc.lexer.Tokenizer;
 
 /**
- * Calculator with Priority
+ * Calculator calculate concurrently
  * @author leiting
  *
  */
-public class PriorityCalc {
+public class ConcCalc {
 
 	private Tokenizer tokenizer;
 	
-	public PriorityCalc(String express) {
+	private ExecutorService executorService = Executors.newFixedThreadPool(10);
+			
+	public ConcCalc(String express) {
 		
 		this.tokenizer = new Tokenizer(express);
 	}
 	
-	public int eval() {
+	public int eval() throws Exception {
 		
-		int result = 0;
+		CalcUnit calcUnit = null;
 		while (tokenizer.hasMore()) {
-			result = statement();
+			calcUnit = statement();
 		}
 		
-		return result;
+		return calcUnit.calc(executorService);
 	}
 	
-	int statement() {
+	CalcUnit statement()  throws Exception {
 		return subAdd();
 	}
 	
-	int subAdd() {
-		int result = multiDiv();
+	CalcUnit subAdd() throws Exception {
+		CalcUnit result = multiDiv();
 		while (tokenizer.peek(TokenType.SUB) || tokenizer.peek(TokenType.ADD)) {
 			if (tokenizer.accept(TokenType.ADD)) {
-				result += multiDiv();
+				result = new AddCalcUnit(result, multiDiv());
 			} else if (tokenizer.accept(TokenType.SUB)){
-				result -= multiDiv();
+				result = new SubCalcUnit(result, multiDiv());
 			}
 		}
 		
 		return result;
 	}
 	
-	int multiDiv() {
-		int result = value();
+	CalcUnit multiDiv() throws Exception {
+		CalcUnit result = value();
 		while (tokenizer.peek(TokenType.MULTI) || tokenizer.peek(TokenType.DIV)) {
 			if (tokenizer.accept(TokenType.MULTI)) {
-				result *= value();
+				result = new MultiCalcUnit(result, value());
 			} else if (tokenizer.accept(TokenType.DIV)){
-				result /= value();
+				result = new DivCalcUnit(result, value());
 			}
 		}
 		
 		return result;
 	}
 	
-	int value() {
+	CalcUnit value() throws Exception {
 		
 		while (tokenizer.accept(TokenType.OPEN_PARATHESIS)) {
-			int result = statement();
+			CalcUnit result = statement();
 			tokenizer.expect(TokenType.CLOSE_PARATHESIS);
 			
 			return result;
 		}
 
 		Token token = tokenizer.expect(TokenType.NUMBER);
-		return Integer.parseInt(token.getStr());
+		return new NumberCalcUnit(Integer.parseInt(token.getStr()));
 	}
 	
 	public static void main(String[] args) {
@@ -79,7 +83,7 @@ public class PriorityCalc {
 		while (scanner.hasNextLine()) {
 
 			try {
-				PriorityCalc calc = new PriorityCalc(scanner.nextLine());
+				ConcCalc calc = new ConcCalc(scanner.nextLine());
 				System.out.println(calc.eval());
 			} catch (Exception e) {
 				e.printStackTrace();
@@ -87,5 +91,4 @@ public class PriorityCalc {
 		}
 	}
 }
-
 
